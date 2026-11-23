@@ -1,0 +1,13 @@
+prompt.md
+build/
+dist/
+*.spec
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+.venv/
+venv/
+*.xlsx
+!Data_Dummy_Transaksi_Penjualan.xlsx
