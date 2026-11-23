@@ -86,6 +86,7 @@ class MainWindow(QMainWindow):
         dg.addWidget(QLabel("Sumber sheet kategori:"))
         self.cat_source_combo = QComboBox()
         self.cat_source_combo.addItems(["Data Bersih", "Data Original", "Original (skip dup & kosong)"])
+        self.cat_source_combo.setCurrentIndex(1)  # default: Data Original (tanpa mengurangi)
         dg.addWidget(self.cat_source_combo)
         opt_layout.addWidget(det_group)
 
