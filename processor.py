@@ -466,27 +466,29 @@ def process_file(input_path, output_path, options, progress_cb=None):
             name = f'Data_Bersih_{i}'; i += 1
         wsc = wb.create_sheet(title=name)
         write_df_to_sheet(wsc, clean_df)
-        if options.get('add_category_sheets', True):
-            col = options.get('category_col')
-            if not col:
-                for c in df.columns:
-                    if (str(df[c].dtype) in ('object','string','str') or df[c].dtype == object) and df[c].nunique() <= 15 and not any(is_formula(v) for v in df[c]):
-                        col = c; break
-            if col:
-                src = options.get('category_source', 'clean')
-                if src == 'clean' and clean_df is not None and len(clean_df) > 0:
-                    cat_base = clean_df
-                elif src == 'filtered':
-                    ec = empty_cols if empty_cols is not None else ([c for c in df.columns if not empty_mask(df, [c]).all()] or list(df.columns))
-                    m = empty_mask(df, ec)
-                    tmp = df[~m].copy()
-                    nf = non_formula_cols(df)
-                    tmp = tmp.drop_duplicates(subset=nf, keep='first')
-                    cat_base = tmp
-                else:
-                    cat_base = df
-                prog("Creating category sheets...", 65)
-                add_category_sheets(wb, cat_base, col)
+        col = options.get('category_col')
+        if not col:
+            for c in df.columns:
+                if (str(df[c].dtype) in ('object','string','str') or df[c].dtype == object) and df[c].nunique() <= 15 and not any(is_formula(v) for v in df[c]):
+                    col = c; break
+        # category sheets from clean data
+        if options.get('add_cat_clean', options.get('add_category_sheets', False)) and col and clean_df is not None and len(clean_df) > 0:
+            prog("Creating category sheets (clean)...", 65)
+            add_category_sheets(wb, clean_df, col)
+        # category sheets from original data (no reduction)
+        if options.get('add_cat_original', False) and col:
+            prog("Creating category sheets (original)...", 65)
+            # create with prefix to avoid name clash
+            for val in list(df[col].dropna().unique()):
+                sub = df[df[col] == val].copy()
+                name = sanitize_sheet_name(f"Orig_{val}")
+                base = name
+                i = 1
+                while name in wb.sheetnames:
+                    name = sanitize_sheet_name(f"{base}_{i}")
+                    i += 1
+                ws = wb.create_sheet(title=name)
+                write_df_to_sheet(ws, sub)
         if options.get('add_charts', True):
             prog("Creating charts...", 75)
             selected = options.get('chart_types', [])

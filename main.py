@@ -77,17 +77,15 @@ class MainWindow(QMainWindow):
         self.chk_empty.setChecked(True)
         self.chk_clean = QCheckBox("Buat sheet Data_Bersih (tanpa duplikat & kosong, diurutkan)")
         self.chk_clean.setChecked(True)
-        self.chk_cat = QCheckBox("Buat sheet per kategori (dari Data_Bersih)")
-        self.chk_cat.setChecked(True)
         self.chk_charts = QCheckBox("Buat sheet Charts")
         self.chk_charts.setChecked(True)
-        for c in [self.chk_dup, self.chk_empty, self.chk_clean, self.chk_cat, self.chk_charts]:
+        for c in [self.chk_dup, self.chk_empty, self.chk_clean, self.chk_charts]:
             dg.addWidget(c)
-        dg.addWidget(QLabel("Sumber sheet kategori:"))
-        self.cat_source_combo = QComboBox()
-        self.cat_source_combo.addItems(["Data Bersih", "Data Original", "Original (skip dup & kosong)"])
-        self.cat_source_combo.setCurrentIndex(1)  # default: Data Original (tanpa mengurangi)
-        dg.addWidget(self.cat_source_combo)
+        self.chk_cat_clean = QCheckBox("Buat sheet per kategori (dari Data Bersih)")
+        self.chk_cat_clean.setChecked(True)
+        self.chk_cat_original = QCheckBox("Buat sheet per kategori (dari Data Original)")
+        dg.addWidget(self.chk_cat_clean)
+        dg.addWidget(self.chk_cat_original)
         opt_layout.addWidget(det_group)
 
         # empty columns selection
@@ -238,7 +236,9 @@ class MainWindow(QMainWindow):
             'add_dup_sheet': self.chk_dup.isChecked(),
             'add_empty_sheet': self.chk_empty.isChecked(),
             'add_clean_sheet': self.chk_clean.isChecked(),
-            'add_category_sheets': self.chk_cat.isChecked(),
+            'add_category_sheets': False,
+            'add_cat_clean': self.chk_cat_clean.isChecked(),
+            'add_cat_original': self.chk_cat_original.isChecked(),
             'add_charts': self.chk_charts.isChecked(),
             'empty_cols': empty_cols,
             'sort_by': sort_by,
