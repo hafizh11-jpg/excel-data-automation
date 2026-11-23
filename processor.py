@@ -1,6 +1,7 @@
 import os
 import re
 import pandas as pd
+import numpy as np
 import openpyxl
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import Font, PatternFill, Alignment
@@ -217,17 +218,23 @@ def make_chart_sheet(wb, df, selected, options=None):
     if 'Histogram' in selected and num_cols:
         metric = num_cols[0]
         s = pd.to_numeric(df[metric], errors='coerce').dropna()
-        counts, bins = pd.cut(s, bins=10, retbins=True, include_lowest=True)
-        vc = counts.value_counts().sort_index()
+        if len(s) == 0:
+            return name
+        try:
+            arr_counts, arr_bins = np.histogram(s, bins=10)
+        except Exception:
+            arr_counts, arr_bins = np.histogram(s, bins='auto')
         ws.cell(row=row_cursor, column=1, value='Histogram Data').font = Font(bold=True)
         row_cursor += 1
         ws.cell(row=row_cursor, column=1, value='Bin')
         ws.cell(row=row_cursor, column=2, value='Count')
         hr = row_cursor
         row_cursor += 1
-        for interval, v in vc.items():
-            ws.cell(row=row_cursor, column=1, value=str(interval))
-            ws.cell(row=row_cursor, column=2, value=int(v))
+        for i in range(len(arr_counts)):
+            lo = arr_bins[i]
+            hi = arr_bins[i+1]
+            ws.cell(row=row_cursor, column=1, value=f"{lo:.2f} - {hi:.2f}")
+            ws.cell(row=row_cursor, column=2, value=int(arr_counts[i]))
             row_cursor += 1
         end = row_cursor - 1
         chart = BarChart()
