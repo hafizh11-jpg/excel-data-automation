@@ -83,6 +83,10 @@ class MainWindow(QMainWindow):
         self.chk_charts.setChecked(True)
         for c in [self.chk_dup, self.chk_empty, self.chk_clean, self.chk_cat, self.chk_charts]:
             dg.addWidget(c)
+        dg.addWidget(QLabel("Sumber sheet kategori:"))
+        self.cat_source_combo = QComboBox()
+        self.cat_source_combo.addItems(["Data Bersih", "Data Original", "Original (skip dup & kosong)"])
+        dg.addWidget(self.cat_source_combo)
         opt_layout.addWidget(det_group)
 
         # empty columns selection
@@ -116,10 +120,6 @@ class MainWindow(QMainWindow):
         self.chart_cat_combo = QComboBox()
         self.chart_cat_combo.addItem("(auto)")
         sg.addWidget(self.chart_cat_combo, 3, 1)
-        sg.addWidget(QLabel("Sumber sheet kategori:"), 4, 0)
-        self.cat_source_combo = QComboBox()
-        self.cat_source_combo.addItems(["Data Bersih", "Data Original", "Original (skip dup & kosong)"])
-        sg.addWidget(self.cat_source_combo, 4, 1)
         opt_layout.addWidget(sort_group)
 
         tabs.addTab(opt_widget, "Opsi")
