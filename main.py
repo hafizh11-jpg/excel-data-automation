@@ -118,7 +118,7 @@ class MainWindow(QMainWindow):
         sg.addWidget(self.chart_cat_combo, 3, 1)
         sg.addWidget(QLabel("Sumber sheet kategori:"), 4, 0)
         self.cat_source_combo = QComboBox()
-        self.cat_source_combo.addItems(["Data Bersih", "Data Original"])
+        self.cat_source_combo.addItems(["Data Bersih", "Data Original", "Original (skip dup & kosong)"])
         sg.addWidget(self.cat_source_combo, 4, 1)
         opt_layout.addWidget(sort_group)
 
@@ -223,7 +223,13 @@ class MainWindow(QMainWindow):
         if cat_col == "(auto)":
             cat_col = None
         chart_cat = self.chart_cat_combo.currentText()
-        cat_source = 'clean' if self.cat_source_combo.currentText() == "Data Bersih" else 'original'
+        txt = self.cat_source_combo.currentText()
+        if txt == "Data Bersih":
+            cat_source = 'clean'
+        elif txt == "Original (skip dup & kosong)":
+            cat_source = 'filtered'
+        else:
+            cat_source = 'original'
         if chart_cat == "(auto)":
             chart_cat = None
 

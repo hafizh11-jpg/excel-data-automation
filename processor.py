@@ -476,6 +476,13 @@ def process_file(input_path, output_path, options, progress_cb=None):
                 src = options.get('category_source', 'clean')
                 if src == 'clean' and clean_df is not None and len(clean_df) > 0:
                     cat_base = clean_df
+                elif src == 'filtered':
+                    ec = empty_cols if empty_cols is not None else ([c for c in df.columns if not empty_mask(df, [c]).all()] or list(df.columns))
+                    m = empty_mask(df, ec)
+                    tmp = df[~m].copy()
+                    nf = non_formula_cols(df)
+                    tmp = tmp.drop_duplicates(subset=nf, keep='first')
+                    cat_base = tmp
                 else:
                     cat_base = df
                 prog("Creating category sheets...", 65)
