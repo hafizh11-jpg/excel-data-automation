@@ -8,22 +8,83 @@ from openpyxl.styles import Font, PatternFill, Alignment
 from openpyxl.chart import BarChart, LineChart, PieChart, ScatterChart, Reference
 from openpyxl.formatting.rule import ColorScaleRule
 
+def _score_sheet(ws):
+    rows = list(ws.iter_rows(values_only=True))
+    cnt = 0
+    for r in rows:
+        if sum(1 for c in r if c is not None and str(c).strip() != '') >= 3:
+            cnt += 1
+    return cnt
+
+def _detect_header_row(rows):
+    best_idx = 0
+    best_score = -1
+    limit = min(30, len(rows))
+    for i in range(limit):
+        r = rows[i]
+        score = sum(1 for c in r if c is not None and str(c).strip() != '')
+        # prefer rows with string labels
+        str_score = sum(1 for c in r if isinstance(c, str) and c.strip() != '')
+        total = score + str_score
+        if total > best_score:
+            best_score = total
+            best_idx = i
+    return best_idx
+
 def load_workbook_df(path):
     wb = openpyxl.load_workbook(path)
-    sheet_name = None
     if 'Data_Transaksi' in wb.sheetnames:
         sheet_name = 'Data_Transaksi'
     else:
-        sheet_name = max(wb.sheetnames, key=lambda s: wb[s].max_row)
+        sheet_name = max(wb.sheetnames, key=lambda s: _score_sheet(wb[s]))
     ws = wb[sheet_name]
     rows = list(ws.iter_rows(values_only=True))
     if not rows:
         raise ValueError("Empty sheet")
-    header = [str(c) if c is not None else f"Col{i}" for i, c in enumerate(rows[0])]
-    data = rows[1:]
-    data = [r for r in data if any(c is not None and str(c).strip() != '' for c in r)]
+    # cached values (data_only) for formula cells
+    try:
+        wbv = openpyxl.load_workbook(path, data_only=True)
+        ws_v = wbv[sheet_name]
+        rows_v = list(ws_v.iter_rows(values_only=True))
+    except Exception:
+        rows_v = rows
+    if len(rows_v) != len(rows):
+        rows_v = rows
+    hi = _detect_header_row(rows)
+    header = [str(c).strip() if c is not None else f"Col{i}" for i, c in enumerate(rows[hi])]
+    # dedup empty header names
+    seen = {}
+    for i, h in enumerate(header):
+        if h == '' or h.startswith('Col') and h[3:].isdigit() and rows[hi][i] is None:
+            header[i] = f"Col{i}"
+        if header[i] in seen:
+            seen[header[i]] += 1
+            header[i] = f"{header[i]}_{seen[header[i]]}"
+        else:
+            seen[header[i]] = 0
+    raw_data = rows[hi+1:]
+    val_data = rows_v[hi+1:]
+    # filter empty rows based on formula rows
+    filtered = [(r, rv) for r, rv in zip(raw_data, val_data) if any(c is not None and str(c).strip() != '' for c in r)]
+    raw_data = [x[0] for x in filtered]
+    val_data = [x[1] for x in filtered]
     ncols = len(header)
-    data = [list(r) + [None]*(ncols-len(r)) if len(r) < ncols else list(r[:ncols]) for r in data]
+    data = []
+    for r, rv in zip(raw_data, val_data):
+        rr = list(r) + [None]*(ncols-len(r)) if len(r) < ncols else list(r[:ncols])
+        vv = list(rv) + [None]*(ncols-len(rv)) if len(rv) < ncols else list(rv[:ncols])
+        new_row = []
+        for cf, cv in zip(rr, vv):
+            if isinstance(cf, str) and cf.strip().startswith('='):
+                if isinstance(cv, str) and cv.strip().startswith('#'):
+                    new_row.append(None)
+                elif cv is None:
+                    new_row.append(cf)
+                else:
+                    new_row.append(cv)
+            else:
+                new_row.append(cf)
+        data.append(new_row)
     df = pd.DataFrame(data, columns=header)
     return wb, ws, df, header, sheet_name
 
@@ -65,9 +126,13 @@ def detect_empty(df, cols=None):
     m = empty_mask(df, cols)
     return df[m].copy()
 
-def clean_data(df, sort_by=None, group_by=None):
+def clean_data(df, sort_by=None, group_by=None, empty_cols=None):
     nf = non_formula_cols(df)
-    m = empty_mask(df, list(df.columns))
+    if empty_cols is None:
+        empty_cols = [c for c in df.columns if not empty_mask(df, [c]).all()]
+        if not empty_cols:
+            empty_cols = list(df.columns)
+    m = empty_mask(df, empty_cols)
     df2 = df[~m].copy()
     df2 = df2.drop_duplicates(subset=nf, keep='first')
     if sort_by and sort_by in df2.columns:
@@ -362,7 +427,16 @@ def process_file(input_path, output_path, options, progress_cb=None):
     prog("Detecting duplicates...", 15)
     dup_df, nf = detect_duplicates(df)
     prog("Detecting empty rows...", 25)
-    empty_cols = options.get('empty_cols') or list(df.columns)
+    if options.get('empty_cols'):
+        empty_cols = options.get('empty_cols')
+    else:
+        # skip columns that are entirely empty (e.g. converted error formula columns)
+        empty_cols = []
+        for c in df.columns:
+            if not empty_mask(df, [c]).all():
+                empty_cols.append(c)
+        if not empty_cols:
+            empty_cols = list(df.columns)
     empty_df = detect_empty(df, empty_cols)
     prog("Creating duplicate sheet...", 35)
     if options.get('add_dup_sheet', True) and len(dup_df) > 0:
@@ -385,7 +459,7 @@ def process_file(input_path, output_path, options, progress_cb=None):
     if options.get('add_clean_sheet', True):
         sort_by = options.get('sort_by')
         group_by = options.get('group_by')
-        clean_df = clean_data(df, sort_by=sort_by, group_by=group_by)
+        clean_df = clean_data(df, sort_by=sort_by, group_by=group_by, empty_cols=empty_cols)
         name = 'Data_Bersih'
         i = 1
         while name in wb.sheetnames:
