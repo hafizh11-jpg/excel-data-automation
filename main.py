@@ -222,13 +222,6 @@ class MainWindow(QMainWindow):
         if cat_col == "(auto)":
             cat_col = None
         chart_cat = self.chart_cat_combo.currentText()
-        txt = self.cat_source_combo.currentText()
-        if txt == "Data Bersih":
-            cat_source = 'clean'
-        elif txt == "Original (skip dup & kosong)":
-            cat_source = 'filtered'
-        else:
-            cat_source = 'original'
         if chart_cat == "(auto)":
             chart_cat = None
 
@@ -244,7 +237,6 @@ class MainWindow(QMainWindow):
             'sort_by': sort_by,
             'group_by': group_by,
             'category_col': cat_col,
-            'category_source': cat_source,
             'chart_cat_col': chart_cat,
             'chart_types': chart_types,
         }
