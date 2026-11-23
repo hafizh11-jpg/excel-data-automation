@@ -454,23 +454,25 @@ def process_file(input_path, output_path, options, progress_cb=None):
             name = f'Data_Kosong_{i}'; i += 1
         wse = wb.create_sheet(title=name)
         write_df_to_sheet(wse, empty_df)
+    col = options.get('category_col')
+    if not col:
+        for c in df.columns:
+            if (str(df[c].dtype) in ('object','string','str') or df[c].dtype == object) and df[c].nunique() <= 15 and not any(is_formula(v) for v in df[c]):
+                col = c; break
     prog("Cleaning data...", 55)
     clean_df = None
-    if options.get('add_clean_sheet', True):
+    need_clean = (options.get('add_clean_sheet', True) or options.get('add_cat_clean', False) or options.get('add_charts_clean', False))
+    if need_clean:
         sort_by = options.get('sort_by')
         group_by = options.get('group_by')
         clean_df = clean_data(df, sort_by=sort_by, group_by=group_by, empty_cols=empty_cols)
-        name = 'Data_Bersih'
-        i = 1
-        while name in wb.sheetnames:
-            name = f'Data_Bersih_{i}'; i += 1
-        wsc = wb.create_sheet(title=name)
-        write_df_to_sheet(wsc, clean_df)
-        col = options.get('category_col')
-        if not col:
-            for c in df.columns:
-                if (str(df[c].dtype) in ('object','string','str') or df[c].dtype == object) and df[c].nunique() <= 15 and not any(is_formula(v) for v in df[c]):
-                    col = c; break
+        if options.get('add_clean_sheet', True):
+            name = 'Data_Bersih'
+            i = 1
+            while name in wb.sheetnames:
+                name = f'Data_Bersih_{i}'; i += 1
+            wsc = wb.create_sheet(title=name)
+            write_df_to_sheet(wsc, clean_df)
         # category sheets from clean data
         if options.get('add_cat_clean', options.get('add_category_sheets', False)) and col and clean_df is not None and len(clean_df) > 0:
             prog("Creating category sheets (clean)...", 65)
@@ -489,11 +491,63 @@ def process_file(input_path, output_path, options, progress_cb=None):
                     i += 1
                 ws = wb.create_sheet(title=name)
                 write_df_to_sheet(ws, sub)
-        if options.get('add_charts', True):
-            prog("Creating charts...", 75)
-            selected = options.get('chart_types', [])
-            if selected:
-                make_chart_sheet(wb, clean_df if len(clean_df)>0 else df, selected, {'cat_col': options.get('chart_cat_col') or col})
+        selected = options.get('chart_types', [])
+        if options.get('add_charts_clean', False) and selected and clean_df is not None and len(clean_df) > 0:
+            prog("Creating charts (clean)...", 75)
+            make_chart_sheet(wb, clean_df, selected, {'cat_col': options.get('chart_cat_col') or col})
+        if options.get('add_charts_original', False) and selected:
+            prog("Creating charts (original)...", 75)
+            make_chart_sheet(wb, df, selected, {'cat_col': options.get('chart_cat_col') or col})
+    selected = options.get('chart_types', [])
+    # Half-clean data variants
+    half_dup = None  # duplicates kept, empty removed
+    half_kos = None  # empty kept, duplicates removed
+    ec = empty_cols if empty_cols is not None else ([c for c in df.columns if not empty_mask(df, [c]).all()] or list(df.columns))
+    m_empty = empty_mask(df, ec)
+    half_dup = df[~m_empty].copy()
+    nf = non_formula_cols(df)
+    dup_mask = df[nf].duplicated(keep='first')
+    half_kos = df[~dup_mask].copy()
+    if options.get('add_half_clean', False):
+        prog("Creating half-clean sheets...", 60)
+        # variant: duplikat tanpa kosong
+        n = 'Data_Duplikat_TanpaKosong'
+        i = 1
+        while n in wb.sheetnames:
+            n = f'Data_Duplikat_TanpaKosong_{i}'; i += 1
+        ws1 = wb.create_sheet(title=n)
+        write_df_to_sheet(ws1, half_dup)
+        # variant: kosong tanpa duplikat
+        n = 'Data_Kosong_TanpaDuplikat'
+        i = 1
+        while n in wb.sheetnames:
+            n = f'Data_Kosong_TanpaDuplikat_{i}'; i += 1
+        ws2 = wb.create_sheet(title=n)
+        write_df_to_sheet(ws2, half_kos)
+    if options.get('add_cat_half', False) and col:
+        prog("Creating category sheets (half-clean)...", 65)
+        # from half_dup
+        for val in list(half_dup[col].dropna().unique()):
+            sub = half_dup[half_dup[col] == val].copy()
+            name = sanitize_sheet_name(f"HalfDup_{val}")
+            base = name; i = 1
+            while name in wb.sheetnames:
+                name = sanitize_sheet_name(f"{base}_{i}"); i += 1
+            ws = wb.create_sheet(title=name)
+            write_df_to_sheet(ws, sub)
+        # from half_kos
+        for val in list(half_kos[col].dropna().unique()):
+            sub = half_kos[half_kos[col] == val].copy()
+            name = sanitize_sheet_name(f"HalfKos_{val}")
+            base = name; i = 1
+            while name in wb.sheetnames:
+                name = sanitize_sheet_name(f"{base}_{i}"); i += 1
+            ws = wb.create_sheet(title=name)
+            write_df_to_sheet(ws, sub)
+    if options.get('add_charts_half', False) and selected:
+        prog("Creating charts (half-clean)...", 75)
+        make_chart_sheet(wb, half_dup if len(half_dup)>0 else df, selected, {'cat_col': options.get('chart_cat_col') or col})
+        make_chart_sheet(wb, half_kos if len(half_kos)>0 else df, selected, {'cat_col': options.get('chart_cat_col') or col})
     prog("Saving...", 90)
     wb.save(output_path)
     prog("Done", 100)

@@ -83,7 +83,10 @@ class MainWindow(QMainWindow):
         self.chk_charts_clean = QCheckBox("Buat sheet chart (dari Data Bersih)")
         self.chk_charts_clean.setChecked(True)
         self.chk_charts_original = QCheckBox("Buat sheet chart (dari Data Original)")
-        for c in [self.chk_dup, self.chk_empty, self.chk_clean, self.chk_cat_clean, self.chk_cat_original, self.chk_charts_clean, self.chk_charts_original]:
+        self.chk_half_clean = QCheckBox("Buat sheet data setengah bersih (2 sheet)")
+        self.chk_cat_half = QCheckBox("Buat sheet per kategori (dari data setengah bersih) (2 sheet)")
+        self.chk_charts_half = QCheckBox("Buat sheet chart (dari data setengah bersih) (2 sheet)")
+        for c in [self.chk_dup, self.chk_empty, self.chk_clean, self.chk_cat_clean, self.chk_cat_original, self.chk_charts_clean, self.chk_charts_original, self.chk_half_clean, self.chk_cat_half, self.chk_charts_half]:
             dg.addWidget(c)
         opt_layout.addWidget(det_group)
 
@@ -234,6 +237,9 @@ class MainWindow(QMainWindow):
             'add_charts': False,
             'add_charts_clean': self.chk_charts_clean.isChecked(),
             'add_charts_original': self.chk_charts_original.isChecked(),
+            'add_half_clean': self.chk_half_clean.isChecked(),
+            'add_cat_half': self.chk_cat_half.isChecked(),
+            'add_charts_half': self.chk_charts_half.isChecked(),
             'empty_cols': empty_cols,
             'sort_by': sort_by,
             'group_by': group_by,
