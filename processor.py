@@ -473,8 +473,13 @@ def process_file(input_path, output_path, options, progress_cb=None):
                     if (str(df[c].dtype) in ('object','string','str') or df[c].dtype == object) and df[c].nunique() <= 15 and not any(is_formula(v) for v in df[c]):
                         col = c; break
             if col:
+                src = options.get('category_source', 'clean')
+                if src == 'clean' and clean_df is not None and len(clean_df) > 0:
+                    cat_base = clean_df
+                else:
+                    cat_base = df
                 prog("Creating category sheets...", 65)
-                add_category_sheets(wb, clean_df, col)
+                add_category_sheets(wb, cat_base, col)
         if options.get('add_charts', True):
             prog("Creating charts...", 75)
             selected = options.get('chart_types', [])
